@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "spotderpy"
+dynamic = ["version"]
+description = "Copy a Spotify link, get the YouTube video."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+dependencies = [
+    "requests>=2.31",
+    "yt-dlp>=2025.1.1",
+    "pyperclip>=1.8",
+    "pystray>=0.19",
+    "Pillow>=10",
+    "sv-ttk>=2.6",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pyinstaller>=6.10"]
+
+[project.urls]
+Homepage = "https://github.com/zlovisa/spotderpy"
+Issues = "https://github.com/zlovisa/spotderpy/issues"
+
+[project.scripts]
+spotderpy = "spotderpy.__main__:main"
+
+[project.gui-scripts]
+spotderpy-gui = "spotderpy.app:main"
+
+[tool.setuptools]
+packages = ["spotderpy"]
+
+[tool.setuptools.dynamic]
+version = { attr = "spotderpy.__version__" }
+
+[tool.setuptools.package-data]
+spotderpy = ["assets/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

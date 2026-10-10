@@ -1,0 +1,57 @@
+name: Release
+
+# Push a tag like v1.2.0 (matching spotderpy/__init__.py) to build the installer + portable zip
+# and publish them as a GitHub Release. The app's update checker looks at the latest release.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Check tag matches app version
+        shell: pwsh
+        run: |
+          $version = (python -c "import spotderpy; print(spotderpy.__version__)").Trim()
+          if ("v$version" -ne "${{ github.ref_name }}") { throw "Tag ${{ github.ref_name }} doesn't match spotderpy.__version__ ($version)" }
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) { choco install innosetup -y --no-progress }
+
+      - name: Build
+        shell: pwsh
+        run: ./packaging/build.ps1
+
+      - name: Release notes from CHANGELOG.md
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart("v")
+          $lines = Get-Content CHANGELOG.md
+          $start = ($lines | Select-String -Pattern "^## \[?$([regex]::Escape($version))\]?" | Select-Object -First 1).LineNumber
+          if ($start) {
+            $rest = $lines[$start..($lines.Count - 1)]
+            $end = ($rest | Select-String -Pattern "^## " | Select-Object -First 1).LineNumber
+            $notes = if ($end) { $rest[0..($end - 2)] } else { $rest }
+          } else { $notes = @("Spotderpy $version") }
+          $notes += "", "**Install:** download ``Spotderpy-$version-Setup.exe`` below. Prefer no install? Use the portable zip."
+          $notes | Set-Content -Encoding utf8 release-notes.md
+
+      - name: Publish release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart("v")
+          gh release create "${{ github.ref_name }}" (Get-ChildItem dist/release/*).FullName --title "Spotderpy $version" --notes-file release-notes.md
